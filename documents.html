@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>اسناد | سیستم مدیریت اسناد مالی</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="headerBar" class="header-bar"></div>
+<nav id="mainNav"></nav>
+
+<div class="container">
+    <h1 class="page-title">📋 مدیریت اسناد</h1>
+
+    <div class="toolbar">
+        <button class="btn btn-success" onclick="openAddModal()">➕ ثبت سند جدید</button>
+        <button class="btn btn-primary" onclick="openModal('viewModal')">👁️ مشاهده سند</button>
+        <button class="btn btn-info" onclick="openModal('searchModal')">🔍 جستجو</button>
+        <button class="btn btn-warning" onclick="openModal('editModal')">✏️ ویرایش</button>
+        <button class="btn btn-danger" onclick="deleteSelected()">🗑️ حذف</button>
+        <button class="btn btn-danger" onclick="openModal('deleteAllModal')">🗑️ حذف همه</button>
+        <div style="flex:1"></div>
+        <select id="filterType" class="select-box" onchange="renderTable()">
+            <option value="all">همه نوع اسناد</option>
+            <option>فاکتور</option><option>م-7</option>
+        </select>
+        <select id="filterExec" class="select-box" onchange="renderTable()">
+            <option value="all">همه اجراآات</option>
+            <option>معاینه</option><option>خریداری</option><option>ارزیابی</option><option>آفرگشایی</option>
+        </select>
+        <input type="text" id="searchBox" class="search-box" placeholder="جستجو..." oninput="renderTable()">
+    </div>
+
+    <div class="table-wrap">
+        <div style="overflow:auto">
+        <table id="docsTable">
+            <thead><tr>
+                <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                <th>شماره</th><th>تاریخ قمری</th><th>تاریخ شمسی</th><th>نوع اجراآات</th>
+                <th>اداره</th><th>تشریحات</th><th>قیمت کل</th><th>نوع سند</th><th>شماره سند</th><th>عملیات</th>
+            </tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </div>
+</div>
+<datalist id="officeList"></datalist>
+
+<!-- Add Modal -->
+<div id="addModal" class="modal">
+<div class="modal-box">
+    <div class="modal-header"><h2>➕ ثبت سند جدید</h2><button class="modal-close" onclick="closeModal('addModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-grid">
+            <div class="form-group"><label>شماره سند</label><input type="text" id="addNumber" readonly style="background:#f5f5f5;cursor:not-allowed"></div>
+            <div class="form-group"><label>تاریخ قمری</label><input type="text" id="addLunarDate" placeholder="مثال: 1445/01/15"></div>
+            <div class="form-group"><label>تاریخ شمسی</label><input type="text" id="addSolarDate" placeholder="مثال: 1403/01/10"></div>
+            <div class="form-group"><label>نوع اجراآات</label>
+                <select id="addExecutionType"><option>معاینه</option><option>خریداری</option><option>ارزیابی</option><option>آفرگشایی</option></select>
+            </div>
+            <div class="form-group"><label>اداره</label>
+                <input type="text" id="addOffice" list="officeList" placeholder="نام اداره را تایپ کنید">
+            </div>
+            <div class="form-group"><label>قیمت کل (افغانی)</label><input type="number" id="addTotalPrice" placeholder="0"></div>
+            <div class="form-group full"><label>تشریحات</label><textarea id="addDescription"></textarea></div>
+            <div class="form-group"><label>نوع سند</label>
+                <select id="addDocumentType"><option>فاکتور</option><option>م-7</option><option>هیچ کدام</option></select>
+            </div>
+            <div class="form-group"><label>شماره سند</label><input type="text" id="addDocumentNumber"></div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-success" onclick="saveNewDoc()">💾 ذخیره</button>
+        <button class="btn btn-primary" onclick="closeModal('addModal')">❌ بستن</button>
+    </div>
+</div>
+</div>
+
+<!-- View Modal -->
+<div id="viewModal" class="modal">
+<div class="modal-box">
+    <div class="modal-header"><h2>👁️ مشاهده سند</h2><button class="modal-close" onclick="closeModal('viewModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-grid">
+            <div class="form-group"><label>شماره سند</label><input type="text" id="viewDocId" placeholder="شماره را وارد کنید"></div>
+            <div class="form-group"><button class="btn btn-info" onclick="viewDoc()" style="margin-top:22px">🔍 نمایش</button></div>
+        </div>
+        <div id="viewResult" style="margin-top:16px"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('viewModal')">❌ بستن</button></div>
+</div>
+</div>
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal">
+<div class="modal-box">
+    <div class="modal-header"><h2>✏️ ویرایش سند</h2><button class="modal-close" onclick="closeModal('editModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-grid">
+            <div class="form-group"><label>شماره سند</label><input type="text" id="editDocId" placeholder="شماره را وارد کنید"></div>
+            <div class="form-group"><button class="btn btn-info" onclick="loadEditDoc()" style="margin-top:22px">🔍 بارگذاری</button></div>
+        </div>
+        <div id="editForm" style="margin-top:16px;display:none">
+            <div class="form-grid">
+                <input type="hidden" id="editId">
+                <div class="form-group"><label>شماره</label><input type="text" id="editNumber"></div>
+                <div class="form-group"><label>تاریخ قمری</label><input type="text" id="editLunarDate"></div>
+                <div class="form-group"><label>تاریخ شمسی</label><input type="text" id="editSolarDate"></div>
+                <div class="form-group"><label>نوع اجراآات</label><select id="editExecutionType"><option>معاینه</option><option>خریداری</option><option>ارزیابی</option><option>آفرگشایی</option></select></div>
+                <div class="form-group"><label>اداره</label><input type="text" id="editOffice" list="officeList" placeholder="نام اداره را تایپ کنید"></div>
+                <div class="form-group"><label>قیمت کل</label><input type="number" id="editTotalPrice"></div>
+                <div class="form-group full"><label>تشریحات</label><textarea id="editDescription"></textarea></div>
+                <div class="form-group"><label>نوع سند</label><select id="editDocumentType"><option>فاکتور</option><option>م-7</option><option>هیچ کدام</option></select></div>
+                <div class="form-group"><label>شماره سند</label><input type="text" id="editDocumentNumber"></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-success" onclick="saveEdit()" id="saveEditBtn" style="display:none">💾 ذخیره تغییرات</button>
+        <button class="btn btn-primary" onclick="closeModal('editModal')">❌ بستن</button>
+    </div>
+</div>
+</div>
+
+<!-- Search Modal -->
+<div id="searchModal" class="modal">
+<div class="modal-box">
+    <div class="modal-header"><h2>🔍 جستجوی پیشرفته</h2><button class="modal-close" onclick="closeModal('searchModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-grid">
+            <div class="form-group"><label>شماره</label><input type="text" id="sNumber"></div>
+            <div class="form-group"><label>تاریخ قمری</label><input type="text" id="sLunarDate"></div>
+            <div class="form-group"><label>تاریخ شمسی</label><input type="text" id="sSolarDate"></div>
+            <div class="form-group"><label>نوع اجراآات</label><select id="sExecutionType"><option value="">همه</option><option>معاینه</option><option>خریداری</option><option>ارزیابی</option><option>آفرگشایی</option></select></div>
+            <div class="form-group"><label>اداره</label><input type="text" id="sOffice" list="officeList" placeholder="همه"></div>
+            <div class="form-group"><label>قیمت از</label><input type="number" id="sPriceFrom"></div>
+            <div class="form-group"><label>قیمت تا</label><input type="number" id="sPriceTo"></div>
+            <div class="form-group"><label>نوع سند</label><select id="sDocumentType"><option value="">همه</option><option>فاکتور</option><option>م-7</option><option>هیچ کدام</option></select></div>
+        </div>
+        <div id="searchResults" style="margin-top:16px"></div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-success" onclick="doSearch()">🔍 جستجو</button>
+        <button class="btn btn-primary" onclick="closeModal('searchModal')">❌ بستن</button>
+    </div>
+</div>
+</div>
+
+<!-- Delete All Modal -->
+<div id="deleteAllModal" class="modal">
+<div class="modal-box" style="max-width:400px">
+    <div class="modal-header"><h2>⚠️ حذف همه اسناد</h2><button class="modal-close" onclick="closeModal('deleteAllModal')">&times;</button></div>
+    <div class="modal-body" style="text-align:center">
+        <p style="font-size:1.1rem;color:#e74c3c;font-weight:700">آیا مطمئن هستید؟</p>
+        <p style="color:#555">تمام اسناد به طور دائمی حذف خواهند شد.</p>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-danger" onclick="deleteAll()">🗑️ بله، حذف همه</button>
+        <button class="btn btn-primary" onclick="closeModal('deleteAllModal')">❌ خیر</button>
+    </div>
+</div>
+</div>
+
+<script src="common.js"></script>
+<script>
+checkLogin();
+redirectIfNotLogged();
+renderHeader();
+renderNav('documents');
+
+var selectedIds = [];
+
+function updateOfficeList() {
+    var offices = {};
+    getDocs().forEach(function(d){ if (d.office) offices[d.office] = true; });
+    var list = document.getElementById('officeList');
+    if (!list) return;
+    list.innerHTML = Object.keys(offices).map(function(o){ return '<option value="'+o+'">'; }).join('');
+}
+
+function openAddModal() {
+    document.getElementById('addNumber').value = getNextDocNumber();
+    openModal('addModal');
+}
+
+function editDocById(docId) {
+    var d = getDocs().find(function(x){ return x.id == docId; });
+    if (!d) { showAlert('سندی یافت نشد.', 'error'); return; }
+    document.getElementById('editDocId').value = d.number || d.id;
+    loadEditDoc();
+    openModal('editModal');
+}
+
+function renderTable() {
+    var type = document.getElementById('filterType').value;
+    var exec = document.getElementById('filterExec').value;
+    var kw = document.getElementById('searchBox').value;
+    var docs = getFilteredDocs(type, exec, kw);
+    updateOfficeList();
+    selectedIds = [];
+    document.getElementById('selectAll').checked = false;
+    var tbody = document.querySelector('#docsTable tbody');
+    if (!docs.length) { tbody.innerHTML = '<tr><td colspan="12" class="no-data">سندی یافت نشد</td></tr>'; return; }
+    tbody.innerHTML = docs.map(function(d){
+        return '<tr><td><input type="checkbox" class="row-check" data-id="'+d.id+'" onchange="updateSelection()"></td>' +
+            '<td>'+d.number+'</td><td>'+fmtDate(d.lunarDate)+'</td><td>'+fmtDate(d.solarDate)+'</td>' +
+            '<td>'+fmtDate(d.executionType)+'</td><td>'+fmtDate(d.office)+'</td><td>'+fmtDate(d.description)+'</td>' +
+            '<td>'+fmtNumber(d.totalPrice)+'</td><td>'+fmtDate(d.documentType)+'</td><td>'+fmtDate(d.documentNumber)+'</td>' +
+            '<td><button class="btn btn-sm btn-warning" onclick="editDocById('+d.id+')">✏️</button></td></tr>';
+    }).join('');
+}
+
+function updateSelection() {
+    selectedIds = [];
+    document.querySelectorAll('.row-check:checked').forEach(function(c){ selectedIds.push(c.dataset.id); });
+}
+
+function toggleSelectAll() {
+    var checked = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.row-check').forEach(function(c){ c.checked = checked; });
+    updateSelection();
+}
+
+function deleteSelected() {
+    if (!selectedIds.length) { showAlert('لطفاً حداقل یک سند را انتخاب کنید.', 'error'); return; }
+    if (!confirm('آیا از حذف ' + selectedIds.length + ' سند انتخاب‌شده اطمینان دارید؟')) return;
+    var docs = getDocs().filter(function(d){ return selectedIds.indexOf(String(d.id)) === -1; });
+    saveDocs(docs); renderTable(); showAlert(selectedIds.length + ' سند حذف شد.', 'success');
+}
+
+function deleteAll() {
+    saveDocs([]); closeModal('deleteAllModal'); renderTable();
+    showAlert('همه اسناد حذف شدند.', 'success');
+}
+
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); resetForms(id); }
+
+function resetForms(id) {
+    if (id === 'addModal') { ['addNumber','addLunarDate','addSolarDate','addTotalPrice','addDescription','addDocumentNumber'].forEach(function(x){ document.getElementById(x).value=''; }); document.getElementById('addNumber').value = getNextDocNumber(); }
+    if (id === 'viewModal') { document.getElementById('viewDocId').value=''; document.getElementById('viewResult').innerHTML=''; }
+    if (id === 'editModal') { document.getElementById('editDocId').value=''; document.getElementById('editForm').style.display='none'; document.getElementById('saveEditBtn').style.display='none'; document.getElementById('editId').value=''; }
+    if (id === 'searchModal') { ['sNumber','sLunarDate','sSolarDate','sPriceFrom','sPriceTo'].forEach(function(x){ document.getElementById(x).value=''; }); document.getElementById('sExecutionType').value=''; document.getElementById('sOffice').value=''; document.getElementById('sDocumentType').value=''; document.getElementById('searchResults').innerHTML=''; }
+}
+
+function saveNewDoc() {
+    var docNum = document.getElementById('addNumber').value;
+    if (!docNum) docNum = getNextDocNumber();
+    var doc = {
+        id: getNextId(), number: String(docNum),
+        lunarDate: document.getElementById('addLunarDate').value, solarDate: document.getElementById('addSolarDate').value,
+        executionType: document.getElementById('addExecutionType').value, office: document.getElementById('addOffice').value,
+        description: document.getElementById('addDescription').value, totalPrice: document.getElementById('addTotalPrice').value,
+        documentType: document.getElementById('addDocumentType').value, documentNumber: document.getElementById('addDocumentNumber').value
+    };
+    if (!doc.solarDate) { showAlert('تاریخ شمسی الزامی است.', 'error'); return; }
+    upsertDoc(doc); closeModal('addModal'); renderTable(); showAlert('سند با موفقیت ثبت شد!', 'success');
+}
+
+function viewDoc() {
+    var id = document.getElementById('viewDocId').value.trim();
+    var d = getDocs().find(function(x){ return x.number == id || x.id == id; });
+    if (!d) { document.getElementById('viewResult').innerHTML = '<p style="color:#e74c3c;text-align:center">سندی یافت نشد.</p>'; return; }
+    document.getElementById('viewResult').innerHTML = '<div class="detail-grid"><div class="detail-item"><label>شماره</label><span class="value">'+d.number+'</span></div><div class="detail-item"><label>تاریخ قمری</label><span>'+fmtDate(d.lunarDate)+'</span></div><div class="detail-item"><label>تاریخ شمسی</label><span>'+fmtDate(d.solarDate)+'</span></div><div class="detail-item"><label>نوع اجراآات</label><span>'+fmtDate(d.executionType)+'</span></div><div class="detail-item"><label>اداره</label><span>'+fmtDate(d.office)+'</span></div><div class="detail-item"><label>قیمت کل</label><span class="value">'+fmtNumber(d.totalPrice)+' افغانی</span></div><div class="detail-item full"><label>تشریحات</label><span>'+fmtDate(d.description)+'</span></div><div class="detail-item"><label>نوع سند</label><span>'+fmtDate(d.documentType)+'</span></div><div class="detail-item"><label>شماره سند</label><span>'+fmtDate(d.documentNumber)+'</span></div></div>';
+}
+
+function loadEditDoc() {
+    var id = document.getElementById('editDocId').value.trim();
+    var d = getDocs().find(function(x){ return x.number == id || x.id == id; });
+    if (!d) { showAlert('سندی یافت نشد.', 'error'); return; }
+    document.getElementById('editId').value = d.id;
+    document.getElementById('editNumber').value = d.number;
+    document.getElementById('editLunarDate').value = d.lunarDate;
+    document.getElementById('editSolarDate').value = d.solarDate;
+    document.getElementById('editExecutionType').value = d.executionType;
+    document.getElementById('editOffice').value = d.office;
+    updateOfficeList();
+    document.getElementById('editDescription').value = d.description;
+    document.getElementById('editTotalPrice').value = d.totalPrice;
+    document.getElementById('editDocumentType').value = d.documentType;
+    document.getElementById('editDocumentNumber').value = d.documentNumber;
+    document.getElementById('editForm').style.display = 'block';
+    document.getElementById('saveEditBtn').style.display = 'inline-flex';
+}
+
+function saveEdit() {
+    var eid = document.getElementById('editId').value;
+    if (!eid) { showAlert('سند بارگذاری نشده است. ابتدا سند را بارگذاری کنید.', 'error'); return; }
+    var doc = {
+        id: eid, number: document.getElementById('editNumber').value,
+        lunarDate: document.getElementById('editLunarDate').value, solarDate: document.getElementById('editSolarDate').value,
+        executionType: document.getElementById('editExecutionType').value, office: document.getElementById('editOffice').value,
+        description: document.getElementById('editDescription').value, totalPrice: document.getElementById('editTotalPrice').value,
+        documentType: document.getElementById('editDocumentType').value, documentNumber: document.getElementById('editDocumentNumber').value
+    };
+    if (!doc.solarDate) { showAlert('تاریخ شمسی الزامی است.', 'error'); return; }
+    upsertDoc(doc); closeModal('editModal'); renderTable(); showAlert('سند با موفقیت ویرایش شد!', 'success');
+}
+
+function doSearch() {
+    var docs = getDocs();
+    var sNumber = document.getElementById('sNumber').value.trim().toLowerCase();
+    var sLunar = document.getElementById('sLunarDate').value.trim().toLowerCase();
+    var sSolar = document.getElementById('sSolarDate').value.trim().toLowerCase();
+    var sExec = document.getElementById('sExecutionType').value;
+    var sOffice = document.getElementById('sOffice').value;
+    var sFrom = document.getElementById('sPriceFrom').value;
+    var sTo = document.getElementById('sPriceTo').value;
+    var sType = document.getElementById('sDocumentType').value;
+    var res = docs.filter(function(d){
+        if (sNumber && !(d.number||'').toLowerCase().includes(sNumber)) return false;
+        if (sLunar && !(d.lunarDate||'').toLowerCase().includes(sLunar)) return false;
+        if (sSolar && !(d.solarDate||'').toLowerCase().includes(sSolar)) return false;
+        if (sExec && d.executionType !== sExec) return false;
+        if (sOffice && d.office !== sOffice) return false;
+        if (sFrom && (parseInt(d.totalPrice)||0) < parseInt(sFrom)) return false;
+        if (sTo && (parseInt(d.totalPrice)||0) > parseInt(sTo)) return false;
+        if (sType && d.documentType !== sType) return false;
+        return true;
+    });
+    var el = document.getElementById('searchResults');
+    if (!res.length) { el.innerHTML = '<p class="no-data">موردی یافت نشد.</p>'; return; }
+    el.innerHTML = '<table class="table" style="margin-top:10px"><thead><tr><th>شماره</th><th>تاریخ شمسی</th><th>نوع اجراآات</th><th>اداره</th><th>قیمت</th><th>نوع سند</th></tr></thead><tbody>' +
+        res.map(function(d){ return '<tr><td>'+d.number+'</td><td>'+fmtDate(d.solarDate)+'</td><td>'+fmtDate(d.executionType)+'</td><td>'+fmtDate(d.office)+'</td><td>'+fmtNumber(d.totalPrice)+'</td><td>'+fmtDate(d.documentType)+'</td></tr>'; }).join('') +
+        '</tbody></table>';
+}
+
+window.addEventListener('load', function(){ if (!getDocs().length) generateSampleData(); document.getElementById('addNumber').value = getNextDocNumber(); renderTable(); });
+</script>
+
+</body>
+</html>

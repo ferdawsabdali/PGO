@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>گزارشات | سیستم مدیریت اسناد مالی</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="headerBar" class="header-bar"></div>
+<nav id="mainNav"></nav>
+
+<div class="container">
+    <h1 class="page-title">📈 گزارش‌ساز</h1>
+
+    <div class="report-section">
+        <h3>🔍 فیلترها</h3>
+        <div class="form-grid">
+            <div class="form-group"><label>از تاریخ شمسی</label><input type="text" id="rFromDate" placeholder="1403/01/01"></div>
+            <div class="form-group"><label>تا تاریخ شمسی</label><input type="text" id="rToDate" placeholder="1403/12/29"></div>
+            <div class="form-group"><label>نوع سند</label>
+                <select id="rType"><option value="all">همه</option><option>فاکتور</option><option>م-7</option><option>هیچ کدام</option></select>
+            </div>
+            <div class="form-group"><label>نوع اجراآات</label>
+                <select id="rExec"><option value="all">همه</option><option>معاینه</option><option>خریداری</option><option>ارزیابی</option><option>آفرگشایی</option></select>
+            </div>
+        </div>
+    </div>
+
+    <div class="report-section">
+        <h3>☑️ فیلدهای گزارش</h3>
+        <div class="report-fields">
+            <div class="report-field"><input type="checkbox" id="rNumber" checked><label for="rNumber">شماره</label></div>
+            <div class="report-field"><input type="checkbox" id="rLunarDate" checked><label for="rLunarDate">تاریخ قمری</label></div>
+            <div class="report-field"><input type="checkbox" id="rSolarDate" checked><label for="rSolarDate">تاریخ شمسی</label></div>
+            <div class="report-field"><input type="checkbox" id="rExecutionType" checked><label for="rExecutionType">نوع اجراآات</label></div>
+            <div class="report-field"><input type="checkbox" id="rOffice" checked><label for="rOffice">اداره</label></div>
+            <div class="report-field"><input type="checkbox" id="rDescription" checked><label for="rDescription">تشریحات</label></div>
+            <div class="report-field"><input type="checkbox" id="rTotalPrice" checked><label for="rTotalPrice">قیمت کل</label></div>
+            <div class="report-field"><input type="checkbox" id="rDocumentType" checked><label for="rDocumentType">نوع سند</label></div>
+            <div class="report-field"><input type="checkbox" id="rDocumentNumber" checked><label for="rDocumentNumber">شماره سند</label></div>
+        </div>
+    </div>
+
+    <div class="report-section">
+        <h3>📤 نوع خروجی</h3>
+        <div style="display:flex;gap:16px;align-items:center">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rOutput" value="print" checked> 🖨️ چاپ (HTML)</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rOutput" value="excel"> 📊 Excel</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="rOutput" value="pdf"> 📄 PDF</label>
+        </div>
+    </div>
+
+    <div style="text-align:center;margin-bottom:30px">
+        <button class="btn btn-lg btn-success" onclick="generateReport()">📄 تولید گزارش</button>
+        <button class="btn btn-lg btn-primary" onclick="resetReport()">🔄 بازنشانی</button>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="common.js"></script>
+<script>
+checkLogin();
+redirectIfNotLogged();
+renderHeader();
+renderNav('reports');
+
+function getReportFields() {
+    var fields = [];
+    if (document.getElementById('rNumber').checked) fields.push({key:'number',label:'شماره'});
+    if (document.getElementById('rLunarDate').checked) fields.push({key:'lunarDate',label:'تاریخ قمری'});
+    if (document.getElementById('rSolarDate').checked) fields.push({key:'solarDate',label:'تاریخ شمسی'});
+    if (document.getElementById('rExecutionType').checked) fields.push({key:'executionType',label:'نوع اجراآات'});
+    if (document.getElementById('rOffice').checked) fields.push({key:'office',label:'اداره'});
+    if (document.getElementById('rDescription').checked) fields.push({key:'description',label:'تشریحات'});
+    if (document.getElementById('rTotalPrice').checked) fields.push({key:'totalPrice',label:'قیمت کل (افغانی)'});
+    if (document.getElementById('rDocumentType').checked) fields.push({key:'documentType',label:'نوع سند'});
+    if (document.getElementById('rDocumentNumber').checked) fields.push({key:'documentNumber',label:'شماره سند'});
+    return fields;
+}
+
+function generateReport() {
+    var from = document.getElementById('rFromDate').value.trim();
+    var to = document.getElementById('rToDate').value.trim();
+    var type = document.getElementById('rType').value;
+    var exec = document.getElementById('rExec').value;
+    var fields = getReportFields();
+    if (!fields.length) { showAlert('حداقل یک فیلد را انتخاب کنید.', 'error'); return; }
+
+    var data = getDocs();
+    if (type !== 'all') data = data.filter(function(d){ return d.documentType === type; });
+    if (exec !== 'all') data = data.filter(function(d){ return d.executionType === exec; });
+    data = filterByDateRange(data, from, to);
+    if (!data.length) { showAlert('داده‌ای برای گزارش یافت نشد.', 'error'); return; }
+
+    var output = document.querySelector('input[name="rOutput"]:checked').value;
+    if (output === 'excel') makeExcel(data, fields, from, to);
+    else if (output === 'pdf') makePdf(data, fields, from, to);
+    else makeHtml(data, fields, from, to);
+}
+
+function makeHtml(data, fields, from, to) {
+    var ths = fields.map(function(f){ return '<th>'+f.label+'</th>'; }).join('');
+    var rows = data.map(function(doc){
+        var tds = fields.map(function(f){
+            var v = doc[f.key];
+            if (f.key === 'totalPrice') v = fmtNumber(v) + ' افغانی';
+            else v = (v === null || v === undefined || v === '' || v === '-') ? '-' : String(v);
+            return '<td>'+v+'</td>';
+        }).join('');
+        return '<tr>'+tds+'</tr>';
+    }).join('');
+    var total = data.reduce(function(s,d){ return s + (parseInt(d.totalPrice)||0); }, 0);
+    var totalIdx = -1;
+    for (var i = 0; i < fields.length; i++) if (fields[i].key === 'totalPrice') { totalIdx = i; break; }
+    var totalRow = totalIdx >= 0 ? '<tr style="font-weight:bold;background:#f5f7fa"><td colspan="'+totalIdx+'" style="text-align:left">جمع کل:</td><td>'+fmtNumber(total)+' افغانی</td></tr>' : '';
+    var title = 'گزارش اسناد مالی';
+    if (from || to) { title += ' ('; if (from) title += 'از '+from; if (from && to) title += ' '; if (to) title += 'تا '+to; title += ')'; }
+    var logo = getLogo1();
+    var hl = getHeaderLines();
+    var logoHtml = '<img src="'+logo+'" style="max-width:70px;max-height:70px;border-radius:50%;border:2px solid #1e3c72">';
+    var html = '<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><title>گزارش</title><style>body{font-family:Calibri,Segoe UI,Tahoma,sans-serif;margin:20px;background:#fff;color:#222}table{width:100%;border-collapse:collapse}th,td{border:1px solid #333;padding:8px;text-align:center}th{background:#1e3c72;color:#fff;font-size:0.95rem}td{font-size:0.9rem}tr:nth-child(even){background:#f5f7fa}.header{text-align:center;margin-bottom:18px}.header h1{font-size:1.1rem;margin:4px 0}.header h2{font-size:1rem;color:#555;margin:2px 0}.meta{text-align:center;font-size:0.85rem;color:#444;margin-bottom:10px}.summary{text-align:center;font-size:1rem;font-weight:bold;color:#1e3c72;margin:10px 0}.page-info{font-size:0.75rem;color:#555;text-align:center;margin-top:4px}</style></head><body>' +
+        '<div class="header">'+logoHtml+'<div>'+hl.map(function(l){return '<h1>'+escapeHtml(l)+'</h1>';}).join('')+'</div></div>' +
+        '<div class="meta">تاریخ گزارش: '+new Date().toLocaleDateString('fa-IR')+'</div>' +
+        '<div class="summary">'+title+' | تعداد: '+data.length.toLocaleString('fa-IR')+' سند</div>' +
+        '<table><thead><tr>'+ths+'</tr></thead><tbody>'+rows+totalRow+'</tbody></table>' +
+        '<div class="page-info">گزارش توسط سیستم مدیریت اسناد مالی تولید شده است.</div>' +
+        '</body></html>';
+    var w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); w.focus(); }
+    else showAlert('پنجره گزارش بلاک شد.', 'error');
+}
+
+function makeExcel(data, fields, from, to) {
+    var ths = fields.map(function(f){ return '<th>'+f.label+'</th>'; }).join('');
+    var rows = data.map(function(doc){
+        var tds = fields.map(function(f){
+            var v = doc[f.key];
+            if (f.key === 'totalPrice') v = (parseInt(v)||0).toString();
+            else v = (v === null || v === undefined || v === '' || v === '-') ? '-' : String(v);
+            return '<td>'+escapeHtml(v)+'</td>';
+        }).join('');
+        return '<tr>'+tds+'</tr>';
+    }).join('');
+    var total = data.reduce(function(s,d){ return s + (parseInt(d.totalPrice)||0); }, 0);
+    var totalRow = '<tr><td colspan="'+(fields.length-1)+'" style="font-weight:bold">جمع کل</td><td>'+total+'</td></tr>';
+    var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="UTF-8"><style>table{border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;text-align:center}th{background:#e0e0e0}</style></head><body><table><thead><tr>'+ths+'</tr></thead><tbody>'+rows+totalRow+'</tbody></table></body></html>';
+    var blob = new Blob([html], {type:'application/vnd.ms-excel'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href = url; a.download = 'Report_'+new Date().toISOString().slice(0,10)+'.xls'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    showAlert('گزارش اکسل با موفقیت دانلود شد!', 'success');
+}
+
+function makePdf(data, fields, from, to) {
+    var jspdf = window.jspdf || window.jsPDF;
+    if (!jspdf || !jspdf.jsPDF) { showAlert('کتابخانه PDF هنوز بارگذاری نشده است.', 'error'); return; }
+    var JsPDF = jspdf.jsPDF;
+    var doc = new JsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+    doc.setFont('helvetica'); doc.setFontSize(14); doc.text('Report', 14, 15);
+    var head = [fields.map(function(f){ return f.label; })];
+    var body = data.map(function(d){ return fields.map(function(f){ if (f.key === 'totalPrice') return (parseInt(d[f.key])||0).toString(); return (d[f.key] === null || d[f.key] === undefined || d[f.key] === '' || d[f.key] === '-') ? '-' : String(d[f.key]); }); });
+    var total = data.reduce(function(s,d){ return s + (parseInt(d.totalPrice)||0); }, 0);
+    var totalRow = ['Total', '', '', '', '', '', total.toString(), '', '']; body.push(totalRow);
+    if (doc.autoTable) {
+        doc.autoTable({head:head, body:body, startY:22, styles:{fontSize:9, halign:'center', font:'helvetica'}, headStyles:{fillColor:[30,60,114], textColor:255}, alternateRowStyles:{fillColor:[245,247,250]}});
+    } else { var y = 25; doc.setFontSize(10); data.forEach(function(d,i){ doc.text((i+1)+'. '+(d.number||'')+' | '+(d.solarDate||'')+' | '+(d.totalPrice||0)+' AFN', 14, y); y += 7; }); doc.text('Total: '+total+' AFN', 14, y+5); }
+    doc.save('Report_'+new Date().toISOString().slice(0,10)+'.pdf');
+    showAlert('گزارش PDF با موفقیت دانلود شد!', 'success');
+}
+
+function resetReport() {
+    document.getElementById('rFromDate').value = '';
+    document.getElementById('rToDate').value = '';
+    document.getElementById('rType').value = 'all';
+    document.getElementById('rExec').value = 'all';
+    ['rNumber','rLunarDate','rSolarDate','rExecutionType','rOffice','rDescription','rTotalPrice','rDocumentType','rDocumentNumber'].forEach(function(id){ document.getElementById(id).checked = true; });
+    document.querySelector('input[name="rOutput"][value="print"]').checked = true;
+}
+
+window.addEventListener('load', function(){ if (!getDocs().length) generateSampleData(); });
+</script>
+
+</body>
+</html>

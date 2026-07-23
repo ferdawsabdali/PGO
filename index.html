@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>داشبورد | سیستم مدیریت اسناد مالی</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="headerBar" class="header-bar"></div>
+<nav id="mainNav"></nav>
+
+<div class="container">
+    <h1 class="page-title">📊 داشبورد</h1>
+
+    <div class="card-grid" id="statsGrid"></div>
+
+    <div class="chart-row">
+        <div class="chart-card">
+            <h3>📈 روند قیمت‌ها (۱۰ سند اخیر)</h3>
+            <canvas id="revenueChart" height="200"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>📋 توزیع نوع اسناد</h3>
+            <canvas id="typeChart" height="200"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>⚖️ توزیع نوع اجراآات</h3>
+            <canvas id="execChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <div class="table-wrap">
+        <h3>📋 ۱۰ سند اخیر</h3>
+        <div style="overflow:auto">
+        <table id="recentTable">
+            <thead><tr><th>شماره</th><th>تاریخ قمری</th><th>تاریخ شمسی</th><th>نوع اجراآات</th><th>اداره</th><th>تشریحات</th><th>قیمت کل</th><th>نوع سند</th><th>شماره سند</th></tr></thead>
+            <tbody></tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+checkLogin();
+redirectIfNotLogged();
+renderHeader();
+renderNav('dashboard');
+
+function loadStats() {
+    var docs = getDocs();
+    var total = docs.length;
+    var val = totalValue();
+    var execTypes = countBy('executionType');
+    var docTypes = countBy('documentType');
+    var avg = total > 0 ? Math.round(val / total) : 0;
+
+    document.getElementById('statsGrid').innerHTML = [
+        {icon:'📋',label:'تعداد کل اسناد',val:total.toLocaleString('fa-IR'),sub:total>0?'مورد ثبت شده':'هنوز سندی ثبت نشده'},
+        {icon:'💰',label:'ارزش کل اسناد',val:val.toLocaleString('fa-IR') + ' افغانی',sub:'مجموع قیمت‌ها'},
+        {icon:'⚖️',label:'نوع اجراآات',val:Object.keys(execTypes).length.toLocaleString('fa-IR'),sub:'دسته مختلف'},
+        {icon:'📁',label:'نوع اسناد',val:Object.keys(docTypes).length.toLocaleString('fa-IR'),sub:'دسته مختلف'},
+        {icon:'📊',label:'میانگین قیمت',val:avg.toLocaleString('fa-IR') + ' افغانی',sub:'به ازای هر سند'},
+        {icon:'🏢',label:'تعداد ادارات',val:Object.keys(countBy('office')).length.toLocaleString('fa-IR'),sub:'اداره مرتبط'}
+    ].map(function(c){
+        return '<div class="card"><div class="card-icon">'+c.icon+'</div><div class="card-label">'+c.label+'</div><div class="card-value">'+c.val+'</div><div class="card-sub">'+c.sub+'</div></div>';
+    }).join('');
+}
+
+function loadRecentTable() {
+    var docs = getDocsSorted().slice(0, 10);
+    var tbody = document.querySelector('#recentTable tbody');
+    if (!docs.length) { tbody.innerHTML = '<tr><td colspan="9" class="no-data">هنوز سندی ثبت نشده است</td></tr>'; return; }
+    tbody.innerHTML = docs.map(function(d){
+        return '<tr><td>'+d.number+'</td><td>'+fmtDate(d.lunarDate)+'</td><td>'+fmtDate(d.solarDate)+'</td><td>'+fmtDate(d.executionType)+'</td><td>'+fmtDate(d.office)+'</td><td>'+fmtDate(d.description)+'</td><td>'+fmtNumber(d.totalPrice)+'</td><td>'+fmtDate(d.documentType)+'</td><td>'+fmtDate(d.documentNumber)+'</td></tr>';
+    }).join('');
+}
+
+function loadCharts() {
+    loadChartLib(function(){
+        var docs = getDocsSorted().slice(0,10).reverse();
+        var ctx1 = document.getElementById('revenueChart').getContext('2d');
+        new Chart(ctx1, { type:'bar', data:{ labels:docs.map(function(d){return d.solarDate||'-';}), datasets:[{label:'قیمت (افغانی)',data:docs.map(function(d){return parseInt(d.totalPrice)||0;}),backgroundColor:'rgba(30,60,114,0.7)',borderColor:'#1e3c72',borderWidth:1,borderRadius:4}]}, options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:function(v){return v.toLocaleString('fa-IR');}}}}}});
+
+        var tCounts = countBy('documentType');
+        var ctx2 = document.getElementById('typeChart').getContext('2d');
+        new Chart(ctx2, { type:'pie', data:{ labels:Object.keys(tCounts), datasets:[{data:Object.values(tCounts),backgroundColor:['#1e3c72','#27ae60','#e74c3c','#f39c12','#9b59b6','#1abc9c']}]}, options:{responsive:true,plugins:{legend:{position:'right'}}}});
+
+        var eCounts = countBy('executionType');
+        var ctx3 = document.getElementById('execChart').getContext('2d');
+        new Chart(ctx3, { type:'doughnut', data:{ labels:Object.keys(eCounts), datasets:[{data:Object.values(eCounts),backgroundColor:['#3498db','#e74c3c','#f39c12','#27ae60','#9b59b6']}]}, options:{responsive:true,plugins:{legend:{position:'right'}}}});
+    });
+}
+
+window.addEventListener('load', function(){
+    if (!getDocs().length) generateSampleData();
+    loadStats();
+    loadRecentTable();
+    loadCharts();
+});
+</script>
+
+</body>
+</html>

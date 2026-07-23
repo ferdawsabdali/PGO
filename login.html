@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ورود | سیستم مدیریت اسناد مالی</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-logo">
+            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4MCIgaGVpZ2h0PSI4MCIgdmlld0JveD0iMCAwIDgwIDgwIj48Y2lyY2xlIGN4PSI0MCIgY3k9IjQwIiByPSIzNiIgZmlsbD0iIzFlM2M3MiIvPjx0ZXh0IHg9IjQwIiB5PSI1MCIgZm9udC1zaXplPSIyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiIgZm9udC1mYW1pbHk9IkNhbGlicmkiPuKcpjwvdGV4dD48L3N2Zz4=">
+        </div>
+        <h1 class="login-title">سیستم مدیریت اسناد مالی</h1>
+        <p class="login-subtitle">لطفاً وارد شوید</p>
+        
+        <div class="form-group" style="margin-bottom:16px">
+            <label>نام کاربری</label>
+            <input type="text" id="loginUser" placeholder="نام کاربری" value="admin">
+        </div>
+        <div class="form-group" style="margin-bottom:20px">
+            <label>رمز عبور</label>
+            <input type="password" id="loginPass" placeholder="رمز عبور" value="admin">
+        </div>
+        <button class="btn btn-lg btn-success" style="width:100%" onclick="login()">🔐 ورود</button>
+        <div id="loginError" class="login-error" style="display:none"></div>
+    </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+// If already logged in, redirect to dashboard
+if (isLoggedIn()) {
+    window.location.href = 'index.html';
+}
+
+function login() {
+    var user = document.getElementById('loginUser').value.trim();
+    var pass = document.getElementById('loginPass').value;
+    if (!user || !pass) {
+        showLoginError('لطفاً نام کاربری و رمز عبور را وارد کنید.');
+        return;
+    }
+    if (doLogin(user, pass)) {
+        window.location.href = 'index.html';
+    } else {
+        showLoginError('نام کاربری یا رمز عبور اشتباه است.');
+    }
+}
+
+function showLoginError(msg) {
+    var el = document.getElementById('loginError');
+    el.textContent = msg;
+    el.style.display = 'block';
+}
+
+document.getElementById('loginPass').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') login();
+});
+</script>
+
+</body>
+</html>

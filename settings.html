@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تنظیمات | سیستم مدیریت اسناد مالی</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="headerBar" class="header-bar"></div>
+<nav id="mainNav"></nav>
+
+<div class="container">
+    <h1 class="page-title">⚙️ تنظیمات</h1>
+
+    <div class="settings-grid">
+        <!-- Header Settings -->
+        <div class="settings-card">
+            <h3>📝 سربرگ (6 خط)</h3>
+            <div class="form-group" style="margin-bottom:12px"><label>خط 1</label><input type="text" id="h1"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>خط 2</label><input type="text" id="h2"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>خط 3</label><input type="text" id="h3"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>خط 4</label><input type="text" id="h4"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>خط 5</label><input type="text" id="h5"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>خط 6</label><input type="text" id="h6"></div>
+            <div class="form-actions"><button class="btn btn-success" onclick="saveHeader()">💾 ذخیره سربرگ</button></div>
+        </div>
+
+        <!-- Logo Settings -->
+        <div class="settings-card">
+            <h3>🖼️ لوگو‌ها</h3>
+            <div class="form-group" style="margin-bottom:12px"><label>آدرس URL لوگوی اول</label><input type="text" id="logoUrl1" placeholder="https://example.com/logo1.png"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>یا فایل لوگوی اول را انتخاب کنید</label><input type="file" id="logoFile1" accept="image/*"></div>
+            <div id="logoPreview1" style="text-align:center;margin-bottom:16px"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>آدرس URL لوگوی دوم</label><input type="text" id="logoUrl2" placeholder="https://example.com/logo2.png"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>یا فایل لوگوی دوم را انتخاب کنید</label><input type="file" id="logoFile2" accept="image/*"></div>
+            <div id="logoPreview2" style="text-align:center;margin-bottom:16px"></div>
+            <div class="form-actions"><button class="btn btn-success" onclick="saveLogo()">💾 ذخیره لوگو‌ها</button></div>
+        </div>
+
+        <!-- User Settings -->
+        <div class="settings-card">
+            <h3>👤 اطلاعات کاربر</h3>
+            <div class="form-group" style="margin-bottom:12px"><label>نام کاربر</label><input type="text" id="uName" placeholder="نام و نام خانوادگی"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>سمت</label><input type="text" id="uRole" placeholder="مثال: مدیر سیستم"></div>
+            <div class="form-group" style="margin-bottom:12px"><label>دپارتمان</label><input type="text" id="uDept" placeholder="مثال: بخش مالی"></div>
+            <div class="form-actions"><button class="btn btn-success" onclick="saveUser()">💾 ذخیره اطلاعات</button></div>
+        </div>
+
+        <!-- Reset & Backup -->
+        <div class="settings-card">
+            <h3>🔄 بازنشانی و پشتیبان</h3>
+            <div class="form-actions" style="flex-direction:column;gap:10px">
+                <button class="btn btn-warning" onclick="resetHeader()">📝 بازنشانی سربرگ</button>
+                <button class="btn btn-danger" onclick="resetLogo()">🖼️ بازنشانی لوگو</button>
+                <button class="btn btn-danger" onclick="deleteAllDocs()">🗑️ حذف همه اسناد</button>
+                <button class="btn btn-success" onclick="backupData()">💾 خروجی JSON</button>
+                <button class="btn btn-info" onclick="document.getElementById('restoreFile').click()">📂 بازیابی JSON</button>
+                <input type="file" id="restoreFile" accept=".json" style="display:none" onchange="restoreData(this)">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="common.js"></script>
+<script>
+checkLogin();
+redirectIfNotLogged();
+renderHeader();
+renderNav('settings');
+
+function loadSettings() {
+    for (var i = 1; i <= 6; i++) { document.getElementById('h'+i).value = localStorage.getItem('headerLine'+i) || ''; }
+    document.getElementById('uName').value = localStorage.getItem('userName') || '';
+    document.getElementById('uRole').value = localStorage.getItem('userRole') || '';
+    document.getElementById('uDept').value = localStorage.getItem('userDept') || '';
+    var logo1 = getLogo1();
+    var logo2 = getLogo2();
+    document.getElementById('logoPreview1').innerHTML = '<img src="'+logo1+'" style="max-width:120px;max-height:120px;border-radius:12px;border:2px solid #1e3c72">';
+    if (logo2) document.getElementById('logoPreview2').innerHTML = '<img src="'+logo2+'" style="max-width:120px;max-height:120px;border-radius:12px;border:2px solid #1e3c72">';
+    else document.getElementById('logoPreview2').innerHTML = '';
+}
+
+function saveHeader() {
+    for (var i = 1; i <= 6; i++) { localStorage.setItem('headerLine'+i, document.getElementById('h'+i).value.trim()); }
+    renderHeader(); showAlert('سربرگ با موفقیت ذخیره شد!', 'success');
+}
+
+function resetHeader() {
+    for (var i = 1; i <= 6; i++) { localStorage.removeItem('headerLine'+i); document.getElementById('h'+i).value = ''; }
+    renderHeader(); showAlert('سربرگ بازنشانی شد.', 'success');
+}
+
+function saveLogo() {
+    var url1 = document.getElementById('logoUrl1').value.trim();
+    var file1 = document.getElementById('logoFile1').files[0];
+    var url2 = document.getElementById('logoUrl2').value.trim();
+    var file2 = document.getElementById('logoFile2').files[0];
+    var saved = false;
+    if (file1) {
+        var r = new FileReader();
+        r.onload = function(e) { localStorage.setItem('logo1', e.target.result); localStorage.removeItem('logo'); renderHeader(); showAlert('لوگو با موفقیت ذخیره شد!', 'success'); loadSettings(); };
+        r.readAsDataURL(file1);
+        saved = true;
+    } else if (url1) {
+        localStorage.setItem('logo1', url1); localStorage.removeItem('logo'); saved = true;
+    }
+    if (file2) {
+        var r2 = new FileReader();
+        r2.onload = function(e) { localStorage.setItem('logo2', e.target.result); renderHeader(); if (!saved) { showAlert('لوگو با موفقیت ذخیره شد!', 'success'); loadSettings(); } else { showAlert('لوگو با موفقیت ذخیره شد!', 'success'); loadSettings(); } };
+        r2.readAsDataURL(file2);
+        saved = true;
+    } else if (url2) {
+        localStorage.setItem('logo2', url2); saved = true;
+    }
+    if (!saved) { showAlert('لطفاً URL یا فایل لوگو را وارد کنید.', 'error'); }
+    else { renderHeader(); if (!file1) loadSettings(); }
+}
+
+function resetLogo() { localStorage.removeItem('logo'); localStorage.removeItem('logo1'); localStorage.removeItem('logo2'); renderHeader(); showAlert('لوگو‌ها بازنشانی شدند.', 'success'); loadSettings(); }
+
+function saveUser() {
+    localStorage.setItem('userName', document.getElementById('uName').value.trim());
+    localStorage.setItem('userRole', document.getElementById('uRole').value.trim());
+    localStorage.setItem('userDept', document.getElementById('uDept').value.trim());
+    showAlert('اطلاعات کاربر ذخیره شد!', 'success');
+}
+
+function deleteAllDocs() {
+    if (!confirm('آیا از حذف همه اسناد اطمینان دارید؟')) return;
+    saveDocs([]); showAlert('همه اسناد حذف شدند.', 'success');
+}
+
+function backupData() {
+    var data = { documents: getDocs(), header: {}, user: {} };
+    for (var i = 1; i <= 6; i++) { data.header['line'+i] = localStorage.getItem('headerLine'+i) || ''; }
+    data.logo1 = localStorage.getItem('logo1') || localStorage.getItem('logo') || '';
+    data.logo2 = localStorage.getItem('logo2') || '';
+    data.auth = { user: localStorage.getItem('authUser') || 'admin', pass: localStorage.getItem('authPass') || 'admin' };
+    data.user = { name: localStorage.getItem('userName')||'', role: localStorage.getItem('userRole')||'', dept: localStorage.getItem('userDept')||'' };
+    var blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a'); a.href = url; a.download = 'backup_'+new Date().toISOString().slice(0,10)+'.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    showAlert('پشتیبان با موفقیت دانلود شد!', 'success');
+}
+
+function restoreData(input) {
+    var file = input.files[0]; if (!file) return;
+    var r = new FileReader();
+    r.onload = function(e) {
+        try {
+            var data = JSON.parse(e.target.result);
+            if (data.documents) saveDocs(data.documents);
+            if (data.header) { for (var i = 1; i <= 6; i++) { var v = data.header['line'+i]; if (v !== undefined) localStorage.setItem('headerLine'+i, v); } }
+            if (data.logo1) localStorage.setItem('logo1', data.logo1);
+            if (data.logo2) localStorage.setItem('logo2', data.logo2);
+            if (data.auth) { if (data.auth.user) localStorage.setItem('authUser', data.auth.user); if (data.auth.pass) localStorage.setItem('authPass', data.auth.pass); }
+            if (data.user) { if (data.user.name) localStorage.setItem('userName', data.user.name); if (data.user.role) localStorage.setItem('userRole', data.user.role); if (data.user.dept) localStorage.setItem('userDept', data.user.dept); }
+            renderHeader(); loadSettings(); showAlert('داده‌ها با موفقیت بازیابی شدند!', 'success');
+        } catch(err) { showAlert('فایل نامعتبر است.', 'error'); }
+    };
+    r.readAsText(file);
+    input.value = '';
+}
+
+window.addEventListener('load', function(){ if (!getDocs().length) generateSampleData(); loadSettings(); });
+</script>
+
+</body>
+</html>
