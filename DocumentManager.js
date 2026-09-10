@@ -8,7 +8,7 @@ class DocumentManager {
 
     // بارگذاری از Local Storage
     loadDocuments() {
-        const data = localStorage.getItem('financialDocuments');
+        const data = localStorage.getItem('documents');
         try {
             return data ? JSON.parse(data) : [];
         } catch (e) {
@@ -19,7 +19,7 @@ class DocumentManager {
 
     // ذخیره در Local Storage
     saveDocuments() {
-        localStorage.setItem('financialDocuments', JSON.stringify(this.documents));
+        localStorage.setItem('documents', JSON.stringify(this.documents));
     }
 
     // مقداردهی اولیه

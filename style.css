@@ -416,3 +416,53 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* No data message */
 .no-data { text-align: center; padding: 40px; color: #888; font-size: 1rem; }
+
+
+/* Search Modal - better scrolling */
+#searchModal .modal-box {
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+}
+#searchModal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(95vh - 120px);
+}
+#searchModal .modal-header,
+#searchModal .modal-footer {
+    flex-shrink: 0;
+}
+
+/* Search results scrollable container */
+#searchResults {
+    max-height: 45vh;
+    overflow-y: auto;
+}
+
+/* Generic table improvements for search results */
+table.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+table.table thead {
+    background: #1e3c72;
+    color: #fff;
+}
+table.table th,
+table.table td {
+    padding: 10px 14px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+}
+table.table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+table.table tr:hover {
+    background: #f8fafc;
+}
+table.table tr:nth-child(even) {
+    background: #f5f7fa;
+}

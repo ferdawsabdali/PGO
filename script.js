@@ -22,7 +22,7 @@ class DocumentManager {
 
     loadDocuments() {
         try {
-            const data = localStorage.getItem('financialDocuments');
+            const data = localStorage.getItem('documents');
             if (!data) return [];
             const parsed = JSON.parse(data);
             return Array.isArray(parsed) ? parsed : [];
@@ -49,7 +49,7 @@ class DocumentManager {
 
     saveDocuments() {
         try {
-            localStorage.setItem('financialDocuments', JSON.stringify(this.documents));
+            localStorage.setItem('documents', JSON.stringify(this.documents));
         } catch (e) {
             console.error('خطا در ذخیره LocalStorage:', e);
         }
