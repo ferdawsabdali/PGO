@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>اسناد | سیستم مدیریت اسناد مالی</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=1789019142">
 </head>
 <body>
 
@@ -191,7 +194,7 @@
 </div>
 </div>
 
-<script src="common.js"></script>
+<script src="common.js?v=1789019142"></script>
 <script>
 checkLogin();
 redirectIfNotLogged();
@@ -222,8 +225,15 @@ function openAddModal() {
 
 /* ===== Inline Edit — opens edit modal with data pre-filled ===== */
 function editDocById(docId) {
+    console.log('[ویرایش] درخواست ویرایش سند با شناسه:', docId, 'نوع:', typeof docId);
     var d = getDocById(docId);
+    console.log('[ویرایش] سند یافت شده:', d ? {id:d.id, number:d.number, office:d.office} : null);
     if (!d) { showAlert('سندی یافت نشد.', 'error'); return; }
+
+    // بستن سایر مودال‌های باز برای جلوگیری از تداخل
+    document.querySelectorAll('.modal.show').forEach(function(m){
+        if (m.id !== 'editModal') m.classList.remove('show');
+    });
 
     document.getElementById('editId').value = String(d.id);
     document.getElementById('editNumber').value = d.number || '';
@@ -236,7 +246,11 @@ function editDocById(docId) {
     document.getElementById('editDocumentType').value = (d.documentType && d.documentType !== '-') ? d.documentType : 'فاکتور';
     document.getElementById('editDocumentNumber').value = (d.documentNumber && d.documentNumber !== '-') ? d.documentNumber : '';
 
-    document.getElementById('editForm').style.display = 'block';
+        // به‌روزرسانی عنوان مودال با شماره سند
+    var titleEl = document.querySelector('#editModal .modal-header h2');
+    if (titleEl) titleEl.textContent = '✏️ ویرایش سند شماره ' + d.number;
+
+document.getElementById('editForm').style.display = 'block';
     document.getElementById('editNotFound').style.display = 'none';
     document.getElementById('saveEditBtn').style.display = 'inline-flex';
     updateOfficeList();
@@ -260,8 +274,8 @@ function renderTable() {
             '<td>'+escapeHtml(d.executionType)+'</td><td>'+escapeHtml(d.office)+'</td><td>'+escapeHtml(d.description)+'</td>' +
             '<td>'+fmtNumber(d.totalPrice)+'</td><td>'+escapeHtml(d.documentType)+'</td><td>'+escapeHtml(d.documentNumber)+'</td>' +
             '<td class="actions">' +
-                '<button class="btn btn-sm btn-warning" onclick="editDocById(\''+d.id+'\')" title="ویرایش">✏️</button> ' +
-                '<button class="btn btn-sm btn-danger" onclick="askDeleteSingle(\''+d.id+'\',\''+escapeHtml(d.number)+'\')" title="حذف">🗑️</button>' +
+                '<button class="btn btn-sm btn-warning" onclick="editDocById(\''+d.id+'\'); event.stopPropagation()" title="ویرایش">✏️</button> ' +
+                '<button class="btn btn-sm btn-danger" onclick="askDeleteSingle(\''+d.id+'\',\''+escapeHtml(d.number)+'\'); event.stopPropagation()" title="حذف">🗑️</button>' +
             '</td></tr>';
     }).join('');
 }
@@ -320,7 +334,16 @@ function deleteAll() {
 
 /* ===== Modal Open/Close ===== */
 function openModal(id) { document.getElementById(id).classList.add('show'); }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function closeModal(id) { 
+    document.getElementById(id).classList.remove('show'); 
+    // پاک‌سازی فرم ویرایش هنگام بستن مودال ویرایش
+    if (id === 'editModal') {
+        document.getElementById('editId').value = '';
+        document.getElementById('editForm').style.display = 'none';
+        var titleEl = document.querySelector('#editModal .modal-header h2');
+        if (titleEl) titleEl.textContent = '✏️ ویرایش سند';
+    }
+}
 
 /* ===== Save New Doc ===== */
 function saveNewDoc() {
@@ -351,6 +374,11 @@ function viewDoc() {
     var id = document.getElementById('viewDocId').value.trim();
     var d = getDocs().find(function(x){ return String(x.number) === String(id) || String(x.id) === String(id); });
     if (!d) { document.getElementById('viewResult').innerHTML = '<p style="color:#e74c3c;text-align:center">سندی یافت نشد.</p>'; return; }
+
+    // بستن سایر مودال‌های باز
+    document.querySelectorAll('.modal.show').forEach(function(m){
+        if (m.id !== 'viewModal') m.classList.remove('show');
+    });
     document.getElementById('viewResult').innerHTML = '<div class="detail-grid"><div class="detail-item"><label>شماره</label><span class="value">'+escapeHtml(d.number)+'</span></div><div class="detail-item"><label>تاریخ قمری</label><span>'+escapeHtml(d.lunarDate)+'</span></div><div class="detail-item"><label>تاریخ شمسی</label><span>'+escapeHtml(d.solarDate)+'</span></div><div class="detail-item"><label>نوع اجراآات</label><span>'+escapeHtml(d.executionType)+'</span></div><div class="detail-item"><label>اداره</label><span>'+escapeHtml(d.office)+'</span></div><div class="detail-item"><label>قیمت کل</label><span class="value">'+fmtNumber(d.totalPrice)+' افغانی</span></div><div class="detail-item full"><label>تشریحات</label><span>'+escapeHtml(d.description)+'</span></div><div class="detail-item"><label>نوع سند</label><span>'+escapeHtml(d.documentType)+'</span></div><div class="detail-item"><label>شماره سند</label><span>'+escapeHtml(d.documentNumber)+'</span></div></div>';
 }
 
