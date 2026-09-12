@@ -1,7 +1,7 @@
 /* ===== Shared Data & Utilities ===== */
 
 /* ===== نسخه برنامه — تغییر این مقدار باعث پاک‌سازی کش می‌شود ===== */
-var APP_VERSION = 'v21-20260912';
+var APP_VERSION = 'v23-20260912';
 
 /* ===== بررسی نسخه و پاک‌سازی کش ===== */
 (function(){
@@ -24,14 +24,21 @@ var APP_VERSION = 'v21-20260912';
                 console.log('[نسخه] شناسه‌های اسناد نرمال‌سازی شدند');
             }
         } catch(e) { console.error('[نسخه] خطا در نرمال‌سازی:', e); }
-        // بارگذاری مجدد صفحه برای پاک‌سازی کش مرورگر
-        // فقط اگر از صفحه دیگری آمده باشد (نه رفرش مداوم)
-        if (stored !== null && !sessionStorage.getItem('versionReload')) {
-            sessionStorage.setItem('versionReload', '1');
-            location.reload(true);
+        // پاک‌سازی کش مرورگر و بارگذاری مجدد اجباری
+        if (stored !== null) {
+            if ('caches' in window) {
+                caches.keys().then(function(names){ for(var i=0;i<names.length;i++) caches.delete(names[i]); });
+            }
+            // اضافه کردن تایم‌استمپ به URL برای شکستن کش
+            var url = window.location.href.split('?')[0] + '?_v=' + APP_VERSION + '&' + Date.now();
+            window.location.replace(url);
         }
     }
-    sessionStorage.removeItem('versionReload');
+    // حذف پارامتر تایم‌استمپ از URL بعد از بارگذاری
+    if (window.location.search.indexOf('_v=') !== -1) {
+        var cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState(null, '', cleanUrl);
+    }
 })();
 
 /* ===== Auth ===== */
@@ -234,7 +241,7 @@ function getDocsSorted() {
     d.sort(function(a,b){
         var na = parseInt(a.number) || 0;
         var nb = parseInt(b.number) || 0;
-        return na - nb; /* شماره کوچک اول → بالا به پایین */
+        return nb - na; /* شماره بزرگ اول → پایین به بالا */
     });
     return d;
 }
@@ -278,7 +285,7 @@ function getFilteredDocs(type, exec, keyword) {
     docs.sort(function(a,b){
         var na = parseInt(a.number) || 0;
         var nb = parseInt(b.number) || 0;
-        return na - nb; /* شماره کوچک اول → بالا به پایین */
+        return nb - na; /* شماره بزرگ اول → پایین به بالا */
     });
     return docs;
 }
