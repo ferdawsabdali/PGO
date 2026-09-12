@@ -1,7 +1,7 @@
 /* ===== Shared Data & Utilities ===== */
 
 /* ===== نسخه برنامه — تغییر این مقدار باعث پاک‌سازی کش می‌شود ===== */
-var APP_VERSION = 'v20-20260912';
+var APP_VERSION = 'v21-20260912';
 
 /* ===== بررسی نسخه و پاک‌سازی کش ===== */
 (function(){
@@ -232,12 +232,9 @@ function countBy(key) {
 function getDocsSorted() {
     var d = getDocs();
     d.sort(function(a,b){
-        var ta = a.createdAt || '';
-        var tb = b.createdAt || '';
-        if (ta && tb) return tb.localeCompare(ta);
-        var na = parseInt(a.id) || 0;
-        var nb = parseInt(b.id) || 0;
-        return nb - na;
+        var na = parseInt(a.number) || 0;
+        var nb = parseInt(b.number) || 0;
+        return na - nb; /* شماره کوچک اول → بالا به پایین */
     });
     return d;
 }
@@ -279,10 +276,9 @@ function getFilteredDocs(type, exec, keyword) {
         });
     }
     docs.sort(function(a,b){
-        var ta = a.createdAt || '';
-        var tb = b.createdAt || '';
-        if (ta && tb) return tb.localeCompare(ta);
-        return (parseInt(b.id)||0) - (parseInt(a.id)||0);
+        var na = parseInt(a.number) || 0;
+        var nb = parseInt(b.number) || 0;
+        return na - nb; /* شماره کوچک اول → بالا به پایین */
     });
     return docs;
 }
