@@ -7,12 +7,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>اسناد | سیستم مدیریت اسناد مالی</title>
-<link rel="stylesheet" href="style.css?v=1789019142">
+<link rel="stylesheet" href="style.css?v=v20-20260912">
 </head>
 <body>
 
 <div id="headerBar" class="header-bar"></div>
 <nav id="mainNav"></nav>
+
+<!-- بنر نسخه برای اطمینان از اجرای کد جدید -->
+<div id="versionBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1e3c72;color:#fff;padding:6px 16px;font-size:0.75rem;text-align:center;z-index:9999;direction:ltr;font-family:monospace"></div>
 
 <div class="container">
     <h1 class="page-title">📋 مدیریت اسناد</h1>
@@ -99,6 +102,7 @@
     <div class="modal-body">
         <div id="editForm" style="display:none">
             <input type="hidden" id="editId">
+            <div id="editDebugInfo" style="display:block;background:#fff3cd;border:1px solid #ffc107;padding:8px 12px;border-radius:6px;margin-bottom:12px;font-size:0.85rem;direction:ltr;text-align:left;font-family:monospace;color:#856404"></div>
             <div class="form-grid">
                 <div class="form-group"><label>شماره</label><input type="text" id="editNumber"></div>
                 <div class="form-group"><label>تاریخ قمری</label><input type="text" id="editLunarDate"></div>
@@ -194,8 +198,19 @@
 </div>
 </div>
 
-<script src="common.js?v=1789019142"></script>
+<script src="common.js?v=v20-20260912"></script>
 <script>
+/* ===== نمایش بنر نسخه ===== */
+(function(){
+    var banner = document.getElementById('versionBanner');
+    if (banner) {
+        banner.style.display = 'block';
+        banner.textContent = 'App: ' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'UNKNOWN') +
+            ' | Docs: ' + getDocs().length +
+            ' | IDs: [' + getDocs().slice(0,5).map(function(d){ return String(d.id); }).join(',') + '...]';
+    }
+})();
+
 checkLogin();
 redirectIfNotLogged();
 renderHeader();
@@ -216,20 +231,83 @@ function updateOfficeList() {
 /* ===== Add Modal ===== */
 function openAddModal() {
     document.getElementById('addNumber').value = getNextDocNumber();
-    // Reset other fields
     ['addLunarDate','addSolarDate','addTotalPrice','addDescription','addDocumentNumber'].forEach(function(x){
         document.getElementById(x).value = '';
     });
     openModal('addModal');
 }
 
-/* ===== Inline Edit — opens edit modal with data pre-filled ===== */
-function editDocById(docId) {
-    console.log('[ویرایش] درخواست ویرایش سند با شناسه:', docId, 'نوع:', typeof docId);
-    var d = getDocById(docId);
-    console.log('[ویرایش] سند یافت شده:', d ? {id:d.id, number:d.number, office:d.office} : null);
-    if (!d) { showAlert('سندی یافت نشد.', 'error'); return; }
+/* ===== Event Delegation — instead of inline onclick ===== */
+function handleTableClick(e) {
+    var btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    var action = btn.getAttribute('data-action');
+    var docId = btn.getAttribute('data-doc-id');
+    var docNumber = btn.getAttribute('data-doc-number');
+    
+    if (action === 'edit') {
+        console.log('[ویرایش] دکمه فشرده شد — شناسه:', docId, 'شماره:', docNumber, 'نوع:', typeof docId);
+        // از شماره سند استفاده کن — همیشه یکتا و قابل مشاهده
+        editDocByNumber(docNumber, docId);
+    } else if (action === 'delete') {
+        var docNum = btn.getAttribute('data-doc-number');
+        askDeleteSingle(docId, docNum);
+    }
+}
 
+/* ===== Inline Edit — opens edit modal with data pre-filled ===== */
+/* ورودی اصلی ویرایش از جدول — با شماره سند */
+function editDocByNumber(docNumber, docIdFallback) {
+    var numStr = String(docNumber);
+    console.log('[ویرایش] جستجو با شماره سند:', numStr);
+    
+    // اول با شماره جستجو کن (همیشه یکتا)
+    var d = getDocByNumber(numStr);
+    if (!d && docIdFallback) {
+        // اگر با شماره پیدا نشد، با شناسه جستجو کن
+        d = getDocById(docIdFallback);
+        console.log('[ویرایش] fallback به شناسه:', d ? {id: d.id, number: d.number} : null);
+    }
+    
+    console.log('[ویرایش] سند یافت شده:', d ? {id: d.id, number: d.number, office: d.office} : null);
+    
+    if (!d) {
+        showAlert('سند شماره ' + numStr + ' یافت نشد.', 'error');
+        return;
+    }
+    _fillEditForm(d, numStr);
+}
+
+/* ویرایش با شناسه — برای استفاده مستقیم */
+function editDocById(docId) {
+    var docIdStr = String(docId);
+    console.log('[ویرایش] شروع — شناسه درخواستی:', docIdStr, 'نوع:', typeof docIdStr);
+    
+    var d = getDocById(docIdStr);
+    console.log('[ویرایش] سند یافت شده با ID:', d ? {id: d.id, typeof_id: typeof d.id, number: d.number, office: d.office} : null);
+    
+    // اگر سند با شناسه یافت نشد، با شماره جستجو کن
+    if (!d) {
+        d = getDocByNumber(docIdStr);
+        console.log('[ویرایش] جستجو با شماره:', d ? {id: d.id, number: d.number} : null);
+    }
+    
+    if (!d) {
+        // fallback به جستجو با شماره
+        d = getDocByNumber(docIdStr);
+    }
+    if (!d) {
+        showAlert('سندی با شناسه ' + docIdStr + ' یافت نشد.', 'error');
+        return;
+    }
+    _fillEditForm(d, docIdStr);
+}
+
+/* پر کردن فرم ویرایش — تابع مشترک */
+function _fillEditForm(d, requestedId) {
     // بستن سایر مودال‌های باز برای جلوگیری از تداخل
     document.querySelectorAll('.modal.show').forEach(function(m){
         if (m.id !== 'editModal') m.classList.remove('show');
@@ -246,18 +324,29 @@ function editDocById(docId) {
     document.getElementById('editDocumentType').value = (d.documentType && d.documentType !== '-') ? d.documentType : 'فاکتور';
     document.getElementById('editDocumentNumber').value = (d.documentNumber && d.documentNumber !== '-') ? d.documentNumber : '';
 
-        // به‌روزرسانی عنوان مودال با شماره سند
+    // به‌روزرسانی عنوان مودال با شماره سند
     var titleEl = document.querySelector('#editModal .modal-header h2');
     if (titleEl) titleEl.textContent = '✏️ ویرایش سند شماره ' + d.number;
 
-document.getElementById('editForm').style.display = 'block';
+    // نمایش اطلاعات دیباگ در مودال
+    var debugEl = document.getElementById('editDebugInfo');
+    if (debugEl) {
+        debugEl.style.display = 'block';
+        var allDocs = getDocs();
+        var idCounts = {};
+        allDocs.forEach(function(dd){ var k = String(dd.id); idCounts[k] = (idCounts[k]||0)+1; });
+        var dupes = Object.keys(idCounts).filter(function(k){ return idCounts[k]>1; });
+        debugEl.textContent = 'DEBUG | Requested: ' + requestedId + ' | Found ID: ' + String(d.id) + ' | Doc #: ' + d.number + ' | V: ' + (typeof APP_VERSION!=='undefined'?APP_VERSION:'?') + ' | Docs: ' + allDocs.length + (dupes.length ? ' | DUPLICATE IDs: ' + dupes.join(',') : ' | IDs OK');
+    }
+
+    document.getElementById('editForm').style.display = 'block';
     document.getElementById('editNotFound').style.display = 'none';
     document.getElementById('saveEditBtn').style.display = 'inline-flex';
     updateOfficeList();
     openModal('editModal');
 }
 
-/* ===== Render Table ===== */
+/* ===== Render Table — with data-attributes instead of inline onclick ===== */
 function renderTable() {
     var type = document.getElementById('filterType').value;
     var exec = document.getElementById('filterExec').value;
@@ -269,16 +358,21 @@ function renderTable() {
     var tbody = document.querySelector('#docsTable tbody');
     if (!docs.length) { tbody.innerHTML = '<tr><td colspan="11" class="no-data">سندی یافت نشد</td></tr>'; return; }
     tbody.innerHTML = docs.map(function(d){
-        return '<tr data-id="'+d.id+'"><td><input type="checkbox" class="row-check" data-id="'+d.id+'" onchange="updateSelection()"></td>' +
+        var id = String(d.id);
+        var num = String(d.number || '');
+        return '<tr data-id="'+escapeHtml(id)+'"><td><input type="checkbox" class="row-check" data-id="'+escapeHtml(id)+'" onchange="updateSelection()"></td>' +
             '<td>'+escapeHtml(d.number)+'</td><td>'+fmtDate(d.lunarDate)+'</td><td>'+fmtDate(d.solarDate)+'</td>' +
             '<td>'+escapeHtml(d.executionType)+'</td><td>'+escapeHtml(d.office)+'</td><td>'+escapeHtml(d.description)+'</td>' +
             '<td>'+fmtNumber(d.totalPrice)+'</td><td>'+escapeHtml(d.documentType)+'</td><td>'+escapeHtml(d.documentNumber)+'</td>' +
             '<td class="actions">' +
-                '<button class="btn btn-sm btn-warning" onclick="editDocById(\''+d.id+'\'); event.stopPropagation()" title="ویرایش">✏️</button> ' +
-                '<button class="btn btn-sm btn-danger" onclick="askDeleteSingle(\''+d.id+'\',\''+escapeHtml(d.number)+'\'); event.stopPropagation()" title="حذف">🗑️</button>' +
+                '<button class="btn btn-sm btn-warning" data-action="edit" data-doc-id="'+escapeHtml(id)+'" data-doc-number="'+escapeHtml(num)+'" title="ویرایش">✏️</button> ' +
+                '<button class="btn btn-sm btn-danger" data-action="delete" data-doc-id="'+escapeHtml(id)+'" data-doc-number="'+escapeHtml(num)+'" title="حذف">🗑️</button>' +
             '</td></tr>';
     }).join('');
 }
+
+/* ===== Attach event delegation to table ===== */
+document.getElementById('docsTable').addEventListener('click', handleTableClick);
 
 /* ===== Selection ===== */
 function updateSelection() {
@@ -309,7 +403,7 @@ function confirmDeleteSelected() {
 
 /* ===== Delete Single — shows confirmation modal ===== */
 function askDeleteSingle(id, num) {
-    pendingDeleteId = id;
+    pendingDeleteId = String(id);
     document.getElementById('deleteSingleMsg').textContent = 'حذف سند شماره ' + num;
     openModal('deleteSingleModal');
 }
@@ -342,6 +436,8 @@ function closeModal(id) {
         document.getElementById('editForm').style.display = 'none';
         var titleEl = document.querySelector('#editModal .modal-header h2');
         if (titleEl) titleEl.textContent = '✏️ ویرایش سند';
+        var debugEl = document.getElementById('editDebugInfo');
+        if (debugEl) debugEl.textContent = '';
     }
 }
 
@@ -400,7 +496,6 @@ function saveEdit() {
     };
     if (!doc.solarDate || doc.solarDate === '-') { showAlert('تاریخ شمسی الزامی است.', 'error'); return; }
 
-    /* ✅ استفاده از upsertDoc با id رشته‌ای یکسان */
     upsertDoc(doc);
     closeModal('editModal');
     renderTable();
@@ -413,15 +508,11 @@ function doSearch() {
     var docs = getDocs();
     console.log('[جستجو] تعداد کل اسناد:', docs.length);
     
-    // Helper: normalize Farsi/Arabic characters for comparison
     function normalizeFa(s) {
         if (!s) return '';
         s = String(s).trim().toLowerCase();
-        // Normalize Arabic Yeh (ي U+064A) to Farsi Yeh (ی U+06CC)
         s = s.replace(/\u064A/g, '\u06CC');
-        // Normalize Arabic Kaf (ك U+0643) to Farsi Keheh (ک U+06A9)
         s = s.replace(/\u0643/g, '\u06A9');
-        // Normalize Arabic digit variations
         return s;
     }
     
@@ -433,8 +524,6 @@ function doSearch() {
     var sFrom = document.getElementById('sPriceFrom').value.trim();
     var sTo = document.getElementById('sPriceTo').value.trim();
     var sType = normalizeFa(document.getElementById('sDocumentType').value);
-    
-    console.log('[جستجو] فیلترها:', {شماره: sNumber, قمری: sLunar, شمسی: sSolar, اجراآات: sExec, اداره: sOffice, از: sFrom, تا: sTo, نوع: sType});
 
     var res = docs.filter(function(d){
         if (sNumber && !normalizeFa(d.number).includes(sNumber)) return false;
@@ -447,8 +536,6 @@ function doSearch() {
         if (sType && !normalizeFa(d.documentType).includes(sType)) return false;
         return true;
     });
-    
-    console.log('[جستجو] نتایج یافت شده:', res.length);
     
     var el = document.getElementById('searchResults');
     if (!el) { console.error('[جستجو] searchResults element not found!'); return; }
@@ -464,7 +551,6 @@ function doSearch() {
         res.map(function(d){ return '<tr style="border-bottom:1px solid #eee"><td style="padding:10px;text-align:center">'+escapeHtml(d.number)+'</td><td style="padding:10px;text-align:center">'+escapeHtml(d.solarDate)+'</td><td style="padding:10px;text-align:center">'+escapeHtml(d.executionType)+'</td><td style="padding:10px;text-align:center">'+escapeHtml(d.office)+'</td><td style="padding:10px;text-align:center">'+fmtNumber(d.totalPrice)+'</td><td style="padding:10px;text-align:center">'+escapeHtml(d.documentType)+'</td></tr>'; }).join('') +
         '</tbody></table></div>';
     
-    // Auto-scroll to results
     if(el && el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'nearest'});
     
     } catch(e) {

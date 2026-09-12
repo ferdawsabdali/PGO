@@ -1,5 +1,39 @@
 /* ===== Shared Data & Utilities ===== */
 
+/* ===== نسخه برنامه — تغییر این مقدار باعث پاک‌سازی کش می‌شود ===== */
+var APP_VERSION = 'v20-20260912';
+
+/* ===== بررسی نسخه و پاک‌سازی کش ===== */
+(function(){
+    var stored = localStorage.getItem('appVersion');
+    if (stored !== APP_VERSION) {
+        console.log('[نسخه] نسخه جدید تشخیص داده شد:', APP_VERSION, '(قبلی:', stored, ')');
+        localStorage.setItem('appVersion', APP_VERSION);
+        // نرمال‌سازی شناسه‌های اسناد — تبدیل همه به رشته
+        try {
+            var docs = JSON.parse(localStorage.getItem('documents') || '[]');
+            var changed = false;
+            docs.forEach(function(d){
+                if (d && d.id !== undefined && typeof d.id !== 'string') {
+                    d.id = String(d.id);
+                    changed = true;
+                }
+            });
+            if (changed) {
+                localStorage.setItem('documents', JSON.stringify(docs));
+                console.log('[نسخه] شناسه‌های اسناد نرمال‌سازی شدند');
+            }
+        } catch(e) { console.error('[نسخه] خطا در نرمال‌سازی:', e); }
+        // بارگذاری مجدد صفحه برای پاک‌سازی کش مرورگر
+        // فقط اگر از صفحه دیگری آمده باشد (نه رفرش مداوم)
+        if (stored !== null && !sessionStorage.getItem('versionReload')) {
+            sessionStorage.setItem('versionReload', '1');
+            location.reload(true);
+        }
+    }
+    sessionStorage.removeItem('versionReload');
+})();
+
 /* ===== Auth ===== */
 function checkLogin() {
     var loggedIn = localStorage.getItem('loggedIn');
@@ -26,10 +60,55 @@ function isLoggedIn() { return !!localStorage.getItem('loggedIn'); }
 var STORAGE_KEY = 'documents';
 
 function getDocs() {
-    try { var d = localStorage.getItem(STORAGE_KEY); return d ? JSON.parse(d) : []; } catch(e) { return []; }
+    try { 
+        var d = localStorage.getItem(STORAGE_KEY); 
+        var parsed = d ? JSON.parse(d) : []; 
+        // اطمینان از اینکه همه شناسه‌ها رشته هستند
+        if (Array.isArray(parsed)) {
+            parsed.forEach(function(doc){
+                if (doc && doc.id !== undefined && typeof doc.id !== 'string') {
+                    doc.id = String(doc.id);
+                }
+            });
+        }
+        // اصلاح خودکار شناسه‌های تکراری — تخصیص شناسه جدید یکتا
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            var seenIds = {};
+            var duplicateFound = false;
+            parsed.forEach(function(doc){
+                if (doc && doc.id !== undefined) {
+                    var idStr = String(doc.id);
+                    if (seenIds[idStr]) {
+                        // شناسه تکراری یافت شد — شناسه جدید یکتا تخصیص بده
+                        var newId = String(Date.now()) + String(Math.floor(Math.random() * 10000));
+                        console.warn('[اصلاح] شناسه تکراری ' + idStr + ' شناسه جدید ' + newId + ' (سند شماره ' + (doc.number || '?') + ')');
+                        doc.id = newId;
+                        duplicateFound = true;
+                    } else {
+                        seenIds[idStr] = true;
+                    }
+                }
+            });
+            if (duplicateFound) {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+                console.warn('[اصلاح] شناسه‌های تکراری اصلاح شدند و ذخیره شدند');
+            }
+        }
+        return parsed;
+    } catch(e) { return []; }
 }
 
-function saveDocs(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+function saveDocs(data) { 
+    // اطمینان از اینکه همه شناسه‌ها رشته هستند قبل از ذخیره
+    if (Array.isArray(data)) {
+        data.forEach(function(d){
+            if (d && d.id !== undefined && typeof d.id !== 'string') {
+                d.id = String(d.id);
+            }
+        });
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); 
+}
 
 /* مهاجرت: افزودن createdAt به اسناد قدیمی */
 function migrateDocs() {
@@ -37,13 +116,10 @@ function migrateDocs() {
     var changed = false;
     docs.forEach(function(d) {
         if (!d.createdAt) {
-            /* استفاده از id به عنوان مبنای زمان ساخت */
             var ts = parseInt(d.id);
             if (ts > 1000000000000) {
-                /* id مبتنی بر Date.now() */
                 d.createdAt = new Date(ts).toISOString();
             } else {
-                /* id عددی ساده — بر اساس شماره سند تاریخ فرضی بساز */
                 var num = parseInt(d.number) || parseInt(d.id) || 1;
                 var base = new Date('2024-01-01T08:00:00Z').getTime();
                 d.createdAt = new Date(base + (num - 1) * 30 * 86400000).toISOString();
@@ -56,7 +132,13 @@ function migrateDocs() {
 
 function getNextId() {
     var docs = getDocs();
-    return docs.length > 0 ? Math.max.apply(null, docs.map(function(d){ return parseInt(d.id) || 0; })) + 1 : 1;
+    if (!docs.length) return 1;
+    var max = 0;
+    docs.forEach(function(d){
+        var n = parseInt(d.id);
+        if (!isNaN(n) && n > max) max = n;
+    });
+    return max + 1;
 }
 
 function getLogo1() { return localStorage.getItem('logo1') || localStorage.getItem('logo') || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0Ij48Y2lyY2xlIGN4PSIzMiIgY3k9IjMyIiByPSIzMCIgZmlsbD0iIzFlM2M3MiIvPjx0ZXh0IHg9IjMyIiB5PSIzOSIgZm9udC1zaXplPSIyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI2ZmZiIgZm9udC1mYW1pbHk9IkNhbGlicmkiPuKcpjwvdGV4dD48L3N2Zz4='; }
@@ -76,7 +158,7 @@ function getHeaderLines() {
     return lines;
 }
 
-function escapeHtml(s) { return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escapeHtml(s) { return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 function fmtNumber(n) { return (parseInt(n)||0).toLocaleString('fa-IR'); }
 
@@ -205,15 +287,38 @@ function getFilteredDocs(type, exec, keyword) {
     return docs;
 }
 
-function getDocById(id) { return getDocs().find(function(d){ return String(d.id) === String(id); }); }
+function getDocById(id) {
+    var idStr = String(id);
+    var docs = getDocs();
+    for (var i = 0; i < docs.length; i++) {
+        if (String(docs[i].id) === idStr) return docs[i];
+    }
+    return null;
+}
 
-function deleteDoc(id) { var d = getDocs().filter(function(x){ return String(x.id) !== String(id); }); saveDocs(d); }
+/* جستجوی سند با شماره — number همیشه یکتا و قابل مشاهده است */
+function getDocByNumber(num) {
+    var numStr = String(num);
+    var docs = getDocs();
+    for (var i = 0; i < docs.length; i++) {
+        if (String(docs[i].number) === numStr) return docs[i];
+    }
+    return null;
+}
+
+function deleteDoc(id) { 
+    var idStr = String(id);
+    var d = getDocs().filter(function(x){ return String(x.id) !== idStr; }); 
+    saveDocs(d); 
+}
 
 function upsertDoc(doc) {
+    // اطمینان از شناسه رشته‌ای
+    doc.id = String(doc.id);
     var docs = getDocs();
     var idx = -1;
     for (var i = 0; i < docs.length; i++) {
-        if (String(docs[i].id) === String(doc.id)) { idx = i; break; }
+        if (String(docs[i].id) === doc.id) { idx = i; break; }
     }
     if (idx >= 0) {
         if (!doc.createdAt) doc.createdAt = docs[idx].createdAt;
@@ -236,16 +341,16 @@ function loadChartLib(cb) {
 
 function generateSampleData() {
     var data = [
-        {id:1,number:'1',lunarDate:'1445/01/15',solarDate:'1403/01/10',executionType:'خریداری',office:'ریس اداره',description:'خرید مواد خام برای پروژه ساختمان',totalPrice:1250000,documentType:'فاکتور',documentNumber:'1001',createdAt:'2024-03-10T08:00:00.000Z'},
-        {id:2,number:'2',lunarDate:'1445/02/20',solarDate:'1403/02/15',executionType:'معاینه',office:'معاونت اداری',description:'تحویل‌گیری تجهیزات اداری',totalPrice:850000,documentType:'م-7',documentNumber:'1002',createdAt:'2024-04-15T09:00:00.000Z'},
-        {id:3,number:'3',lunarDate:'1445/03/10',solarDate:'1403/03/05',executionType:'ارزیابی',office:'بخش مالی',description:'ثبت سند رسمی معامله زمین',totalPrice:2500000,documentType:'فاکتور',documentNumber:'1003',createdAt:'2024-05-05T10:00:00.000Z'},
-        {id:4,number:'4',lunarDate:'1445/04/18',solarDate:'1403/04/12',executionType:'خریداری',office:'واحد حقوقی',description:'خرید خدمات حقوقی',totalPrice:500000,documentType:'م-7',documentNumber:'1004',createdAt:'2024-06-12T11:00:00.000Z'},
-        {id:5,number:'5',lunarDate:'1445/05/22',solarDate:'1403/05/18',executionType:'آفرگشایی',office:'معاونت تخنیکی',description:'تحویل‌گیری تجهیزات تخنیکی',totalPrice:1750000,documentType:'فاکتور',documentNumber:'1005',createdAt:'2024-07-18T12:00:00.000Z'},
-        {id:6,number:'6',lunarDate:'1445/06/05',solarDate:'1403/06/01',executionType:'خریداری',office:'موسسه',description:'خرید مواد برای موسسه',totalPrice:3200000,documentType:'م-7',documentNumber:'1006',createdAt:'2024-08-01T13:00:00.000Z'},
-        {id:7,number:'7',lunarDate:'1445/07/14',solarDate:'1403/07/10',executionType:'ارزیابی',office:'سایر',description:'ثبت سند رسمی',totalPrice:900000,documentType:'فاکتور',documentNumber:'1007',createdAt:'2024-09-10T14:00:00.000Z'},
-        {id:8,number:'8',lunarDate:'1445/08/08',solarDate:'1403/08/03',executionType:'خریداری',office:'ریس اداره',description:'خرید تجهیزات',totalPrice:2100000,documentType:'م-7',documentNumber:'1008',createdAt:'2024-10-03T15:00:00.000Z'},
-        {id:9,number:'9',lunarDate:'1445/09/25',solarDate:'1403/09/20',executionType:'معاینه',office:'بخش مالی',description:'تحویل‌گیری اسناد مالی',totalPrice:450000,documentType:'فاکتور',documentNumber:'1009',createdAt:'2024-11-20T16:00:00.000Z'},
-        {id:10,number:'10',lunarDate:'1445/10/12',solarDate:'1403/10/08',executionType:'خریداری',office:'معاونت اداری',description:'خرید مبلمان اداری',totalPrice:6800000,documentType:'م-7',documentNumber:'1010',createdAt:'2024-12-08T17:00:00.000Z'},
+        {id:'1',number:'1',lunarDate:'1445/01/15',solarDate:'1403/01/10',executionType:'خریداری',office:'ریس اداره',description:'خرید مواد خام برای پروژه ساختمان',totalPrice:1250000,documentType:'فاکتور',documentNumber:'1001',createdAt:'2024-03-10T08:00:00.000Z'},
+        {id:'2',number:'2',lunarDate:'1445/02/20',solarDate:'1403/02/15',executionType:'معاینه',office:'معاونت اداری',description:'تحویل‌گیری تجهیزات اداری',totalPrice:850000,documentType:'م-7',documentNumber:'1002',createdAt:'2024-04-15T09:00:00.000Z'},
+        {id:'3',number:'3',lunarDate:'1445/03/10',solarDate:'1403/03/05',executionType:'ارزیابی',office:'بخش مالی',description:'ثبت سند رسمی معامله زمین',totalPrice:2500000,documentType:'فاکتور',documentNumber:'1003',createdAt:'2024-05-05T10:00:00.000Z'},
+        {id:'4',number:'4',lunarDate:'1445/04/18',solarDate:'1403/04/12',executionType:'خریداری',office:'واحد حقوقی',description:'خرید خدمات حقوقی',totalPrice:500000,documentType:'م-7',documentNumber:'1004',createdAt:'2024-06-12T11:00:00.000Z'},
+        {id:'5',number:'5',lunarDate:'1445/05/22',solarDate:'1403/05/18',executionType:'آفرگشایی',office:'معاونت تخنیکی',description:'تحویل‌گیری تجهیزات تخنیکی',totalPrice:1750000,documentType:'فاکتور',documentNumber:'1005',createdAt:'2024-07-18T12:00:00.000Z'},
+        {id:'6',number:'6',lunarDate:'1445/06/05',solarDate:'1403/06/01',executionType:'خریداری',office:'موسسه',description:'خرید مواد برای موسسه',totalPrice:3200000,documentType:'م-7',documentNumber:'1006',createdAt:'2024-08-01T13:00:00.000Z'},
+        {id:'7',number:'7',lunarDate:'1445/07/14',solarDate:'1403/07/10',executionType:'ارزیابی',office:'سایر',description:'ثبت سند رسمی',totalPrice:900000,documentType:'فاکتور',documentNumber:'1007',createdAt:'2024-09-10T14:00:00.000Z'},
+        {id:'8',number:'8',lunarDate:'1445/08/08',solarDate:'1403/08/03',executionType:'خریداری',office:'ریس اداره',description:'خرید تجهیزات',totalPrice:2100000,documentType:'م-7',documentNumber:'1008',createdAt:'2024-10-03T15:00:00.000Z'},
+        {id:'9',number:'9',lunarDate:'1445/09/25',solarDate:'1403/09/20',executionType:'معاینه',office:'بخش مالی',description:'تحویل‌گیری اسناد مالی',totalPrice:450000,documentType:'فاکتور',documentNumber:'1009',createdAt:'2024-11-20T16:00:00.000Z'},
+        {id:'10',number:'10',lunarDate:'1445/10/12',solarDate:'1403/10/08',executionType:'خریداری',office:'معاونت اداری',description:'خرید مبلمان اداری',totalPrice:6800000,documentType:'م-7',documentNumber:'1010',createdAt:'2024-12-08T17:00:00.000Z'},
     ];
     saveDocs(data);
 }
